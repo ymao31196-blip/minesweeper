@@ -1,0 +1,6 @@
+# Reasonix CodeGraph
+.codegraph/
+
+# OS
+Thumbs.db
+.DS_Store
