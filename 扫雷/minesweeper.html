@@ -130,6 +130,9 @@ h1 {
 .board-wrapper {
   border: 3px solid;
   border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+  touch-action: manipulation;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .board {
   display: grid;
@@ -501,6 +504,7 @@ class Minesweeper {
     // Touch long-press for flag (mobile)
     this._longPressTimer = null;
     this._longPressCell = null;
+    this._touchStartPos = null;
     this.boardEl.addEventListener('touchstart', e => this._onTouchStart(e), { passive: false });
     this.boardEl.addEventListener('touchend', e => this._onTouchEnd(e));
     this.boardEl.addEventListener('touchmove', () => this._cancelLongPress());
@@ -1003,10 +1007,22 @@ class Minesweeper {
 
   /* ---- Touch handlers (long-press for flag) ---- */
   _onTouchStart(e) {
-    e.preventDefault(); // suppress browser's delayed contextmenu
+    // 多指触摸（缩放/平移）—— 交给浏览器处理
+    if (e.touches.length > 1) return;
+
+    // 记录单指起始位置（滑动检测用）
+    this._touchStartPos = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+
     const cell = this._getCellFromEvent(e);
     if (!cell) return;
     if (this.mobileFlagMode) return;
+
+    // 仅当手指落在格子上时阻止默认行为（防止长按出菜单）
+    e.preventDefault();
+
     this._longPressCell = cell;
     this._longPressTimer = setTimeout(() => {
       if (this._longPressCell) {
@@ -1018,6 +1034,19 @@ class Minesweeper {
   }
 
   _onTouchEnd(e) {
+    // 滑动检测：位移 > 10px 视为拖动，不触发游戏动作
+    if (this._touchStartPos) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - this._touchStartPos.x;
+      const dy = touch.clientY - this._touchStartPos.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        this._cancelLongPress();
+        this._touchStartPos = null;
+        return;
+      }
+      this._touchStartPos = null;
+    }
+
     if (this._longPressTimer && this._longPressCell) {
       const cell = this._getCellFromEvent(e);
       if (cell && cell.row === this._longPressCell.row && cell.col === this._longPressCell.col) {
